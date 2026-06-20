@@ -25,22 +25,37 @@ function DashboardShell() {
   } = useIoT();
 
   const [isSidebarCollapsed, setIsSidebarCollapsed] = useState<boolean>(false);
-  const [isMobileSidebarOpen, setIsMobileSidebarOpen] = useState<boolean>(false);
+  const [isMobileMenuOpen, setIsMobileMenuOpen] = useState<boolean>(false);
   const [isSettingsOpen, setIsSettingsOpen] = useState<boolean>(false);
+  const [isMobile, setIsMobile] = useState<boolean>(false);
 
   // Monitor screen width to auto-collapse sidebar on smaller layouts
   useEffect(() => {
-    const handleResize = () => {
-      if (window.innerWidth < 1024) {
+    const checkMobileWidth = () => {
+      const mobile = window.innerWidth < 768;
+      setIsMobile(mobile);
+      if (mobile) {
         setIsSidebarCollapsed(true);
       } else {
         setIsSidebarCollapsed(false);
       }
     };
-    handleResize();
-    window.addEventListener('resize', handleResize);
-    return () => window.removeEventListener('resize', handleResize);
+    checkMobileWidth();
+    window.addEventListener('resize', checkMobileWidth);
+    return () => window.removeEventListener('resize', checkMobileWidth);
   }, []);
+
+  // Handle body scroll locking when mobile sidebar is open
+  useEffect(() => {
+    if (isMobile && isMobileMenuOpen) {
+      document.body.style.overflow = 'hidden';
+    } else {
+      document.body.style.overflow = '';
+    }
+    return () => {
+      document.body.style.overflow = '';
+    };
+  }, [isMobile, isMobileMenuOpen]);
 
   if (isLoadingAuth) {
     return (
@@ -56,116 +71,140 @@ function DashboardShell() {
     return <LoginView />;
   }
 
+  const showLabels = isMobile ? isMobileMenuOpen : !isSidebarCollapsed;
+
   return (
     <div className="flex h-screen w-full overflow-hidden bg-slate-950 font-sans text-slate-200" id="app-shell">
       {/* Backdrop for Mobile Sidebar Drawer */}
-      {isMobileSidebarOpen && (
+      {isMobile && isMobileMenuOpen && (
         <div 
-          onClick={() => setIsMobileSidebarOpen(false)}
-          className="fixed inset-0 z-40 bg-slate-950/70 backdrop-blur-sm lg:hidden"
+          onClick={() => setIsMobileMenuOpen(false)}
+          className="fixed inset-0 bg-slate-950/55 md:hidden"
+          style={{ zIndex: 1100, background: 'rgba(0, 0, 0, 0.55)' }}
           id="mobile-sidebar-backdrop"
         />
       )}
 
       {/* SIDEBAR */}
       <aside 
-        className={`fixed inset-y-0 left-0 z-40 bg-slate-900 border-r border-slate-800 transition-all duration-300 flex flex-col justify-between lg:static shrink-0 ${
-          isMobileSidebarOpen ? 'translate-x-0' : '-translate-x-full lg:translate-x-0'
-        } ${
-          isSidebarCollapsed ? 'w-20' : 'w-64'
+        className={`sidebar flex flex-col justify-between bg-slate-900 border-r border-slate-800 shrink-0 ${
+          isMobile
+            ? isMobileMenuOpen ? 'open mobile-open' : ''
+            : `h-screen sticky top-0 transition-all duration-300 ${isSidebarCollapsed ? 'collapsed w-20' : 'w-64'}`
         }`}
         id="app-sidebar"
       >
-        <div>
+        <div className="flex flex-col">
           {/* Logo Section */}
           <div className="flex h-16 items-center px-6 border-b border-slate-800 justify-between">
             <div className="flex items-center gap-3 overflow-hidden">
               <div className="h-8 w-8 rounded bg-cyan-500 flex items-center justify-center shrink-0">
                 <Cpu className="h-4 w-4 text-slate-900 animate-pulse" />
               </div>
-              {!isSidebarCollapsed && (
-                <span className="font-bold tracking-tight text-slate-100 uppercase animate-fade-in text-sm select-none">
+              {showLabels && (
+                <span className="brand-text font-bold tracking-tight text-slate-100 uppercase animate-fade-in text-sm select-none">
                   FIREBASE IoT
                 </span>
               )}
             </div>
 
             {/* mobile close trigger */}
-            <button
-              onClick={() => setIsMobileSidebarOpen(false)}
-              className="lg:hidden text-slate-400 hover:text-slate-200"
-              id="btn-close-mobile-sidebar"
-            >
-              <X className="h-4 w-4" />
-            </button>
+            {isMobile && (
+              <button
+                onClick={() => setIsMobileMenuOpen(false)}
+                className="text-slate-400 hover:text-slate-200 cursor-pointer p-0.5"
+                id="btn-close-mobile-sidebar"
+              >
+                <X className="h-4 w-4" />
+              </button>
+            )}
           </div>
           
           {/* Sidebar Nav Items */}
-          <nav className="flex-1 space-y-1 p-4">
+          <nav className="space-y-1 p-4">
             <button
+              onClick={() => {
+                if (isMobile) {
+                  setIsMobileMenuOpen(false);
+                }
+              }}
               className="w-full rounded bg-slate-800 px-3 py-2 text-sm font-medium text-cyan-400 flex items-center border-none text-left cursor-pointer"
               id="sidebar-nav-dashboard"
             >
               <div className="w-1 h-4 bg-cyan-400 rounded-full mr-3 shrink-0"></div>
-              {!isSidebarCollapsed && <span>Dashboard</span>}
+              {showLabels && <span className="menu-label">Dashboard</span>}
             </button>
 
             <button
-              onClick={() => setIsSettingsOpen(true)}
+              onClick={() => {
+                setIsSettingsOpen(true);
+                if (isMobile) {
+                  setIsMobileMenuOpen(false);
+                }
+              }}
               className="w-full px-3 py-2 text-sm font-medium text-slate-400 hover:text-slate-100 cursor-pointer flex items-center border-none bg-transparent text-left"
               id="sidebar-nav-settings"
             >
               <div className="w-1 h-4 bg-transparent mr-3 shrink-0"></div>
-              {!isSidebarCollapsed && <span>Settings</span>}
+              {showLabels && <span className="menu-label">Settings</span>}
             </button>
           </nav>
         </div>
 
         {/* Dynamic Device Status block matched inside Sidebar */}
-        <div>
-          <div className="m-4 rounded-lg bg-slate-950 p-4 border border-slate-800">
-            <div className="flex items-center justify-between mb-2">
-              <span className="text-[10px] uppercase tracking-wider text-slate-500 font-bold">Device Status</span>
-              <span className={`flex h-2 w-2 rounded-full ${
-                deviceData.status === 'online' ? 'bg-emerald-500 shadow-[0_0_8px_rgba(16,185,129,0.6)]' : 'bg-rose-500'
-              }`} />
-            </div>
-            
-            <div className="text-xs font-mono">
-              <div className="flex justify-between mb-1">
-                <span className="text-slate-500">Name:</span>
-                <span className="text-slate-300 truncate max-w-[100px]">ESP32</span>
+        <div className="mt-auto flex flex-col">
+          {showLabels && (
+            <div className="device-status-text m-4 rounded-lg bg-slate-950 p-4 border border-slate-800 animate-fade-in">
+              <div className="flex items-center justify-between mb-2">
+                <span className="text-[10px] uppercase tracking-wider text-slate-500 font-bold">Device Status</span>
+                <span className={`flex h-2 w-2 rounded-full ${
+                  deviceData.status === 'online' ? 'bg-emerald-500 shadow-[0_0_8px_rgba(16,185,129,0.6)]' : 'bg-rose-500'
+                }`} />
               </div>
-              <div className="flex justify-between">
-                <span className="text-slate-500">IP:</span>
-                <span className="text-slate-300">{deviceData.ipAddress || '--'}</span>
+              
+              <div className="text-xs font-mono">
+                <div className="flex justify-between mb-1">
+                  <span className="text-slate-500">Name:</span>
+                  <span className="text-slate-300 truncate max-w-[100px]">ESP32</span>
+                </div>
+                <div className="flex justify-between">
+                  <span className="text-slate-500">IP:</span>
+                  <span className="text-slate-300">{deviceData.ipAddress || '--'}</span>
+                </div>
               </div>
             </div>
-          </div>
+          )}
 
           {/* Logout Trigger Button */}
           <button 
-            onClick={logout}
-            className="w-full flex items-center p-4 border-t border-slate-800 text-slate-400 hover:text-red-400 text-sm font-medium bg-transparent cursor-pointer"
+            onClick={() => {
+              logout();
+              if (isMobile) {
+                setIsMobileMenuOpen(false);
+              }
+            }}
+            className="w-full flex items-center p-4 border-t border-slate-800 text-slate-400 hover:text-red-400 text-sm font-medium bg-transparent cursor-pointer mt-auto"
             id="btn-sidebar-logout"
           >
             <LogOut className="h-4 w-4 mr-3 shrink-0 text-red-500" />
-            {!isSidebarCollapsed && <span>Logout</span>}
+            {showLabels && <span className="logout-text">Logout</span>}
           </button>
         </div>
       </aside>
 
       {/* MAIN CONTENT BAR */}
-      <main className="flex-1 flex flex-col bg-slate-950 overflow-hidden">
+      <main className="main-content flex-1 flex flex-col bg-slate-950 overflow-hidden">
         
         {/* TOPBAR */}
         <header className="flex h-16 items-center justify-between px-6 border-b border-slate-900 bg-slate-900/50 backdrop-blur shrink-0 sticky top-0 z-30">
           <div className="flex items-center gap-4">
             {/* Mobile Sidebar toggle burguer */}
             <button
-              onClick={() => setIsMobileSidebarOpen(true)}
-              className="lg:hidden text-slate-400 hover:text-slate-200 p-1.5 focus:outline-none"
+              onClick={() => setIsMobileMenuOpen(!isMobileMenuOpen)}
+              className="md:hidden text-slate-400 hover:text-slate-200 p-1.5 focus:outline-none cursor-pointer"
               id="btn-open-mobile-sidebar"
+              aria-label="Buka atau tutup menu"
+              aria-expanded={isMobileMenuOpen}
             >
               <Menu className="h-5 w-5" />
             </button>
@@ -173,7 +212,7 @@ function DashboardShell() {
             {/* Desktop Collapse Trigger */}
             <button
               onClick={() => setIsSidebarCollapsed(!isSidebarCollapsed)}
-              className="hidden lg:block text-slate-400 hover:text-slate-200 hover:bg-slate-800/50 p-1.5 rounded"
+              className="hidden md:block text-slate-400 hover:text-slate-200 hover:bg-slate-800/50 p-1.5 rounded cursor-pointer"
               id="sidebar-toggle-desktop"
             >
               <Menu className="h-4.5 w-4.5" />
@@ -246,26 +285,30 @@ function DashboardShell() {
             </div>
           )}
           
+          {/* Top Section: Sensor Card (Statistics) */}
+          <div className="w-full">
+            <SensorCard />
+          </div>
+          
           <div className="grid grid-cols-12 gap-6 items-start">
             
-            {/* SENSORS COLUMN (col-span-12 on Mobile, col-span-3 on Large screen) */}
-            <div className="col-span-12 lg:col-span-3 flex flex-col gap-4">
-              <SensorCard />
-              <VoiceController />
-            </div>
-
-            {/* GRAPH PLOT SECTION (col-span-12 on Mobile, col-span-9 on Large screen) */}
-            <div className="col-span-12 lg:col-span-9 h-full min-h-[300px]">
+            {/* GRAPH PLOT SECTION */}
+            <div className="col-span-12 xl:col-span-8 h-full min-h-[300px]">
               <SensorCharts />
             </div>
 
-            {/* CONTROLS (col-span-12 on Mobile, col-span-7 on Large screen) */}
-            <div className="col-span-12 lg:col-span-7 bg-slate-900 rounded-xl border border-slate-800 p-6">
+            {/* VOICE CONTROLLER COLUMN */}
+            <div className="col-span-12 md:col-span-6 xl:col-span-4 flex flex-col gap-4">
+              <VoiceController />
+            </div>
+
+            {/* CONTROLS */}
+            <div className="col-span-12 md:col-span-6 xl:col-span-7 bg-slate-900 rounded-xl border border-slate-800 p-6">
               <RelayControls />
             </div>
 
-            {/* ACTIVITY LOGS (col-span-12 on Mobile, col-span-5 on Large screen) */}
-            <div className="col-span-12 lg:col-span-5">
+            {/* ACTIVITY LOGS */}
+            <div className="col-span-12 md:col-span-12 xl:col-span-5">
               <LogHistory />
             </div>
 
