@@ -1,0 +1,6 @@
+{
+  "name": "Firebase IoT Control Dashboard",
+  "description": "Responsif Internet of Things control dashboard dengan Firebase Auth, Realtime Database, dan kontrol suara Bahasa Indonesia.",
+  "requestFramePermissions": ["microphone"],
+  "majorCapabilities": ["MAJOR_CAPABILITY_SERVER_SIDE_GEMINI_API"]
+}
